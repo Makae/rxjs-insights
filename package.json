@@ -1,0 +1,19 @@
+{
+  "name": "rxjs-example-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "compile": "npx tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "rxjs": "^7.8.1",
+    "tslint": "^6.1.3",
+    "typescript": "^5.0.4"
+  }
+}
