@@ -1,27 +1,10 @@
-import { Observable } from "rxjs";
+import { Observable, of } from "rxjs";
 
-var oneToTen = new Observable<number>((subscriber) => {
-    var unsubscribeCallback = () => {
-        console.log("Cleanup resources - oneToTen")
-    }
-
-    for (var i = 0; i <= 10; i++) {
-        subscriber.next(i);
-
-    }
-    subscriber.complete();
-
-    // ignored, as already completed
-    subscriber.next(3000);
-    // ignored, as already completed
-    subscriber.error();
-
-    return unsubscribeCallback;
-});
+var oneToTen = of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
 var onlyBelow5 = new Observable<number>((subscriber) => {
 
-    var subscription = oneToTen.subscribe({
+    const subscription = oneToTen.subscribe({
         next: (n) => {
             if (n < 5) {
                 subscriber.next(n);
@@ -35,7 +18,7 @@ var onlyBelow5 = new Observable<number>((subscriber) => {
     })
 
 
-    var unsubscribeCallback = () => {
+    const unsubscribeCallback = () => {
         subscription.unsubscribe();
         console.log("Cleanup resources - onlyBelow5");
     }
