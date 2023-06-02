@@ -1,12 +1,12 @@
 import { Observable, of } from "rxjs";
 
-var oneToTen = of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+var oneToThree = of(1, 2, 3);
 
-var onlyBelow5 = new Observable<number>((subscriber) => {
+var onlyBelow3 = new Observable<number>((subscriber) => {
 
-    const subscription = oneToTen.subscribe({
+    const subscription = oneToThree.subscribe({
         next: (n) => {
-            if (n < 5) {
+            if (n < 3) {
                 subscriber.next(n);
             } else {
                 console.log("Filtered out:" + n);
@@ -20,13 +20,13 @@ var onlyBelow5 = new Observable<number>((subscriber) => {
 
     const unsubscribeCallback = () => {
         subscription.unsubscribe();
-        console.log("Cleanup resources - onlyBelow5");
+        console.log("Cleanup resources - onlyBelow3");
     }
 
     return unsubscribeCallback;
 });
 
-onlyBelow5.subscribe({
+onlyBelow3.subscribe({
     next: (n) => console.log("Subscriber.next() called, got: " + n),
     error: (e) => console.log("Subscriber.error() called, got: " + e),
     complete: () => console.log("Subscriber.complete() called")

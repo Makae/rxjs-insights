@@ -1,11 +1,10 @@
 import { Observable } from "rxjs";
 
-var oneToTen = new Observable<number>((subscriber) => {
-    var unsubscribeCallback = () => {
-        console.log("Cleanup resources")
-    }
-
-    for (var i = 0; i <= 10; i++) {
+/**
+ * NOTE: We can specify our own observable
+ */
+var oneToThree = new Observable<number>((subscriber) => {
+    for (var i = 1; i <= 3; i++) {
         subscriber.next(i);
 
     }
@@ -16,11 +15,14 @@ var oneToTen = new Observable<number>((subscriber) => {
     // ignored, as already completed
     subscriber.error();
 
-    return unsubscribeCallback;
+    return () => {
+        console.log("Cleanup resources")
+    };
 });
 
-oneToTen.subscribe({
+oneToThree.subscribe({
     next: (n) => console.log("Subscriber.next() called, got: " + n),
     error: (e) => console.log("Subscriber.error() called, got: " + e),
     complete: () => console.log("Subscriber.complete() called")
 });
+
