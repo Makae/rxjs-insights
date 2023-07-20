@@ -1,12 +1,4 @@
-import { Observable, concatMap, delay, filter, map, of, switchMap, tap, timeout, timer } from "rxjs";
-import { AuthService } from "./services/auth-service";
-import { UserData, UserDataService } from "./services/userdata-service";
-
-/**
- * NOTE:
- * When working with streams of data we often want automatically fetch additional data
- * This is often done by subscribing to another observable when the next() is triggered.
- */
+import { concatMap, delay, map, of, switchMap, tap, timer } from "rxjs";
 
 const words = [
     "Hel",
