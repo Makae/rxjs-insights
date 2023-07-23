@@ -194,9 +194,9 @@ In on itself this is not very helpful, but if you combine observables by filteri
 it is a lot clearer of what is happening.  
 ```
 --1--2--3--4--5-->        # An Observeble which returns a stream of integers
-  [map: x => x * 2]       # Map-Operator
+  [map: n => n * 2]       # Map-Operator
 --2--4--6--8--10->        # New Observable
-  [filter: x => x > 2]    # Filter-Operator
+  [filter: n => n > 2]    # Filter-Operator
 -----4--6--8--10->        # Final Observable
 ```
 
