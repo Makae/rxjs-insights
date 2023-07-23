@@ -1,11 +1,10 @@
 # Introduction
 Within the last few years Reactive Programming bacame a core tool which is used by a lot of programmers in their day-to-day work. Reactive Programming is specified in the ReactiveX API (Reactive Extensions) which provide a solution for "asynchronous programming with observable streams".  
 
-One of the most notable frameworks which uses Reactive Programming is Angular which includes the RxJS library. This library  implements the ReactiveX API. Angular depends on it for implementing a reactive and standardized solution for working with data streams and data manipulation.  
+One of the most notable frameworks which uses an implementation of ReactiveX is Angular which includes the RxJS library. Angular depends on it for implementing a reactive and standardized solution for working with data streams and data manipulation.  
 Altough it is bundled within Angular and so widely used, it is often hard for new developers to understand and to not fall into the many common pitfalls.
 
-I remember having  a hard time getting to understand RxJS. This article tries to ease new developers into ReactiveX and RxJS and also tries to give some tips for handling the more complex topics.
-
+I remember having  a hard time getting to understand RxJS. This article tries to ease new developers into ReactiveX and RxJS and also tries to give some tips for handling the more complex topics.  
 Within the article I will show examples with TypeScript and the RxJS Library as I am most comfortable with those implementations. Nevertheless the concept here will apply to all implementations of ReactiveX.
 
 ## Why Reactive Programming?
