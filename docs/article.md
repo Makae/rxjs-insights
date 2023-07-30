@@ -1,15 +1,15 @@
 # Introduction
 Within the last few years Reactive Programming bacame a core tool which is used by a lot of programmers in their day-to-day work. Reactive Programming is specified in the ReactiveX (Reactive E**X**tensions) API  which provide a solution for "asynchronous programming with observable streams". There are other specifications but they are not directly part of this article.  
 
-One of the most notable frameworks which uses an implementation of ReactiveX is Angular. Angular includes the RxJS library as a direct dependenc and uses it for implementing a reactive and standardized solution for working with data streams and data manipulation.
-Altough RxJS is widely used by developers and adopted by major frameworks, it is often hard for new developers to understand and to not fall into the many common pitfalls.
+One of the most notable frameworks which uses an implementation of ReactiveX is Angular. Angular includes the RxJS library as a direct dependency and uses it for implementing a reactive and standardized solution for working with data streams and data manipulation.
+Altough RxJS is widely used by developers and adopted by major frameworks, it is often hard for new developers to understand it. Furthermore there are many common pitfalls which make finding problems hard.
 
-I remember having  a hard time getting into RxJS. This article tries to ease new developers into ReactiveX and RxJS and also tries to give some tips for handling the more complex topics.  
+I remember having  a hard time getting into RxJS. This article tries to ease new developers into ReactiveX and RxJS and also gives some insights for handling the more complex topics like Higher-Level Observables and the inner workings of RxJS.  
 Within the article I will show all examples with TypeScript and the RxJS Library, as I am most comfortable with those implementations. Nevertheless the concept here will apply to all implementations of ReactiveX.
 
 ## Why Reactive Programming?
-Reactive Programming tries to streamline the handling of data which change (asynchronousely) over time. 
-It is most helpful for data events which are generated interactively or is provided by an external data source to your Application.  
+Reactive Programming streamlines the handling of data which change (asynchronousely) over time by providing an uniform interface for it. 
+It is most helpful for data events which are generated interactively or is provided by an external data source to your Application.   
 
 For Example:
 * User-Input (Touch, Mouse, Keyboard)
@@ -17,21 +17,23 @@ For Example:
 * State which changes over time (Similar to "Redux")
 
 ### But there are Nested-Callbacks, Promises, EventListeners!
-Yes, there are, and they have their own advantages and drawbacks. But when mixed in an (frontend) application they define a non-uniform interface for handling data:   
-* **Callbacks**  
-  Can be used as an easy way to emit a single data event, but there are not error or complete handling. So you often need to provide multiple callbacks for each event type.  
+Yes, there are, and they are a valid way to solve your problems and have their own advantages. But when they are mixed in an (frontend) application they define a non-uniform interface with different capabilities for handling data:   
+* **Simple callbacks**  
+  Can be used as an easy way to emit a data events, but there is no error or completion event handling built-in. So you often need to provide multiple callbacks for each event type.  
   E.g: Hooks / Template Methods
 * **Promises**  
-  when you only use one single data event with error and completion event handling, Promises are the way to go  
+  When you only need one single data event and with error and completion event handling, Promises are the way to go  
   E.g: REST-Requests
 * **EventListeners**  
-  When you want to have indefinite number of data events but error-handling is not relevant,  EventListeners are sutiable for that  
+  When you want to have indefinite number of data events but error handling is not relevant,  EventListeners are sutiable for that  
   E.g.: Key-Up events on Input Field
 
-ReactiveX uses **Observables** which provide a generic solution with a lot more flexibilities for handling the type and number events which are occuring by your source. Of course, when you use it you will have an additional abstraction layer which you use in your application.  
+Contrasting the exapmles above, ReactiveX uses **Observables** which provide a generic solution with a lot more flexibilities for handling the type and number events which are emitted by your source.  
+
+Of course, when you use it you will have an additional abstraction layer which you use in your application.  
 This results in an additional dependency which needs to be kept uptodate and developers need to be able to understand it.
 
-As you can see in this table the use of Observables provide *one* solution for all desired capabilities.
+As you can see in this table the use of Observables provide *one* solution for all desirable capabilities.
 | Technology | Synchronous | Asynchronous | Multiple events | Complete event | Error event |
 |-------- | -------- | -------- | -------- | -------- | -------- |
 | Callback | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -41,12 +43,13 @@ As you can see in this table the use of Observables provide *one* solution for a
 
 
 ## Core concepts of ReactiveX
-To understand how we work with Observables we need to understand a few key elements of the API:  
-* You *subscribe* to *Observables* and react to *one or multiple values* which are returned over time  
-* After all values are returned, your *Observer* gets informed in a *complete* event
-* If an Exception happend the *Observer* also get noticed and receives an *error* event
+To understand how we work with **Observables** we need to understand a few key elements of the API:  
+* You *subscribe* to **Observables** and react to *one or multiple values* which are returned over time  
+* After all values are returned, your **Observer** gets informed in a **complete** event
+* If an Exception happend the **Observer** also get noticed and receives an **error** event
+* When we can daisy-chain the streams of **Observers** together by using **Pipes**
 
-In the above descriptions we can see a few keywords which are part of the terminology used by Reactive Programming.  
+In the above list we can see a few keywords which are part of the terminology used by Reactive Programming.  
 The differents are described further below.
 
 ### Observable
@@ -58,12 +61,13 @@ The differents are described further below.
     → Payload of the REST-Response
   * **complete**  
     Is triggered when it completes  
-    → REST-Request done
+    → REST-Request completed
   * **error**  
     Is triggered when an exception got thrown  
     → 404 Response from Server
 
- #### Examples of Events beeing triggered  
+ #### Examples of event type callbacks
+ Here are some examples of how different use cases are triggering the different event type callback of an observable. 
 | Example | Next trigger count | Complete  trigger | Error  trigger | 
 |-------- | -------- | -------- | -------- |
 | GET Request (success) | 1 | ✅ | ❌ |
@@ -73,13 +77,17 @@ The differents are described further below.
 | User-Input in Textbox changes | 0 ... n | ❌ | ❌ |
 
 #### Example of Observables
-RxJS provides a lot of handy creation function for creating Observables.
+RxJS provides a lot of handy creation functions for instantiating Observables.  
+For Example:
 ```ts
 // Creates an Observable which will trigger events when the keyup event is fired on an input element
 const inputKeyupObservable = fromEvent(htmlInput, 'keyup');
 
-// Will emit values 1 and 2 and then completes when subscribed
+// Will emit values 1 and 2 and then completes right away
 const value1and2Observable = of(1,2);
+
+// Will emit a tick all 500ms
+const all500msTick =  timer(500);
 
 // Note: Those on itself will only do something, when you subscribe to it (see next section)
 ```
@@ -87,26 +95,30 @@ const value1and2Observable = of(1,2);
 ### Observer / Subscriber
 This is the part of the app which is interested in the events. Normally this is your app receiving the data and then doing something with it.  
 In the case of the frontend this could be the changes in an input-field which is triggered by the user typing. You could then use this data to trigger autocompletion or form validation.  
-We subscribe to an *Observable* by providing an **Observer** / **Subscriber**. It has one or only some of callbacks defined for the event types describewd in the Observable section: `next()`, `error()`, `complete()`  
+We subscribe to an *Observable* by providing an **Observer** / **Subscriber**. It has one or only some of callbacks defined for the event types describewd in the Observable section: `next()`, `error()`, `complete()`
+
 After the `subscribe()` was called we get a **Subscription** back which is used to unsubscribe when we are no longer interested in the events.
 
 #### Example of an Observer
 ```ts
-// Normally, this is inlined in the subscribe() call
+// Normally, this is inlined in the subscribe() call below
 const myUserInputObserver = {
   next: (myValue: string) => {doAutocomplete(myValue)},
   error: (error) => { console.log(error); },
   complete: (complETE) => { console.log(complete); }
 };
 
+const inputKeyupObservable = fromEvent(htmlInput, 'keyup');
 const mySubscription = inputKeyupObservable.subscribe(myUserInputObserver);
 ```
 
 ### Subscription
-The subscription is used to unsubscribe after we are no longer interested in the events emitted by the Observable. This is normally the case, when a component is unloaded or we want to abort an ongoing data-fetch process (But this is normally handled by the RxJS librarry).
+The subscription is used to unsubscribe after we are no longer interested in the events emitted by the Observable. This is normally the case, when a component is unloaded or we want to abort an ongoing data-fetch process. 
+(When we use the built-in RxJS-methods this is normally handled  by the librarry).
 
-#### Exapmle of Subscription
-After our component got destroyed we want to make sure we do not keep listening to events which are triggered by the Observable. If we do not do that there could be some nasty side-effects with bugs which are very hard to track down.  
+
+#### Exapmle of a Subscription 
+After our component got destroyed we want to make sure we do not keep listening to events which are triggered by the Observable. If we forget to do that, there could be some nasty side-effects with bugs which are deviousely hard to track down.  
 ```ts
 class MyComponent {
   private mySubscription?: Subscription;
@@ -124,7 +136,7 @@ class MyComponent {
 ```
 
 ### Pipes
-Pipes are used to connect 2 observables together. You can chain observables to gether which results in the data stream beeing processed by one observable after another. In RxJS there are a lot of useful *operator* functions help you work with the data events beeing emitted by the *root* observable.
+Pipes are used to connect 2 observables together. You can chain observables together which results in the data stream beeing processed by one observable after another. In RxJS there are a lot of useful *operator* functions help you work with the data events beeing emitted by the *root* observable.
 
 #### Example of using pipes
 As you can see below, pipes are a handy way to setup the plumbing of your Observables. When you use the built-in *operator* functions you can easily manipulate and filter the data of your event stream.
@@ -146,7 +158,7 @@ inputKeyupObservable
 });
 ```
 
-I will go into more detail about how Pipes work in the background in a later section. But for now imagine all *operator* functions above create new Observables which subscribe to the upstream Observables:
+I will go into more detail about how Pipes work in the background in a later section. But for now imagine all *operator* functions above create new **Observables** which subscribe to the upstream **Observables**. They performe some calculation / filtering / feting and return the result to the next downstream **Observer**:
 
 ```mermaid
     sequenceDiagram
@@ -200,17 +212,23 @@ it is a lot clearer of what is happening.
 -----4--6--8--10->        # Final Observable
 ```
 
+### Marble diagram resources
+There are interactive Marble diagrams to help explain developers what is happening.
+* **[Rx-Marbles](https://rxmarbles.com/#filter)**  
+  Defines interactive marble diagrams
+*  **[Rx-Visuzalize](https://rxjs-visualize.explosionpills.com/,sample)**  
+  Visualizes events my animating them over time
+
 
 # Getting technical
 Now you've had a brief overview over ReactiveX and RxJS let's dive deeper into the workings within the RxJS library.
 
-## Making an Observable from scratch
+## Our very own Observable
 In the examples in the Introduction we saw *creation* functions like `of(1,2)` or `fromEvent(input, 'keyup')`. In 90% of the cases those *creation* functions serve your needs and you do not need to create Observeables yourself.  
-But we want to understand how you can create your own so we get a deeper understanding of the inner workings of the library.
+But we want to understand how you can create our own so we get a deeper understanding of the inner workings of RxJS.
 
-### Our very own Observable
-When defining a custom observable, the basic structure reminds us a lot of those of of Promises.  
-Recalling promises we have two callback methods beeing passed to the "on-subscribe" method. We then use either one or the other to *fulfill* or *reject* the promise.
+When defining a custom observable, the basic structure reminds us a lot of Promises.  
+Recalling promises, we have two callback methods beeing passed to the "on-subscribe" method. We then use either one or the other to *fulfill* or *reject* the promise.
 ```ts
 // Note: We need to give back all the values at once, as we only trigger resolve once!
 let myPromise = new Promise<number[]>((resolveCallback, rejectCallback) => {
@@ -218,7 +236,8 @@ let myPromise = new Promise<number[]>((resolveCallback, rejectCallback) => {
 });
 ```
 
-If we checkout the Observable we can see that, similarily to the Promise, we pass-in the subscriber / observer which contains the three callback methods `next()`, `complete()` and `error()`.
+### Example of custom Observable
+If we look at the Observable we can see that, similarily to the Promise, we pass-in an observer which contains the three callback methods `next()`, `complete()` and `error()`.
 ```ts
 var oneToThree = new Observable<number>((subscriber) => {
     for (var i = 1; i <= 3; i++) {
@@ -239,8 +258,97 @@ var oneToThree = new Observable<number>((subscriber) => {
 });
 ```
 
-So the key teake-aways here are:  
-* We pass in the subscriber which contains `next()`, `complete()` and `error()`
-* We call one, some or none of the passed-in callbacks
+So the key points are:  
+* We pass in the subscriber which contains the callbacks `next()`, `complete()` and `error()`
+  * We call one, some or none of the passed-in callbacks  
 * We return a method which contains *tear-down logic*, which is triggered after the observable stream closed.
-  * E.g.: Close Websockets, Unsubscribe EventListener from Input
+  * E.g.: Close Websockets, Unsubscribe EventListener from Inputs
+* The first time calling either `complete()` or `error()` will result in all future callbacks to be ignored
+
+
+## Higher-Level Observables
+### Operator Functions
+The first touch-points a new developer has with higher-level observables are normally the built in operator functions like `switchMap`, `exhaustMap` or `mergeMap`. They are normally used to trigger a side effect or fetching of data based on an event emitted on the upstream observable.  
+Imagine for example you want to fetch suggestions for your autocomplete feature from the, when the user is typing in some letters into an input.
+
+Lets take the Example from the previous Article section:
+```ts
+fromEvent(htmlInput, 'keyup')
+.pipe(
+  // Only trigger down-stream observer all 200ms
+  debounceTime(200),
+  // Remove leading and trailing whitespaces
+  map((value) => value.trim()),
+  // We are only interested in values which are longer than 3 chars in order to return a meaningful subset
+  filter((value) => value.length >= 3),
+  // We ar only interested in values which changed between the current and next event
+  distinctUntilChanged()
+)
+.subscribe({
+  next: (searchValue) => suggestAutocomplete(value)
+});
+```
+
+Here, we first ensure we trigger our `next()` callback only, after we ensured we have relevant data which and the user is not still typing.
+Then we trigger the display ofthe autocomplete by triggering `suggestAutocomplete(value)`. This solution is fine, as long as we already have the possiblke suggestions loaded and do not need to fetch them from a server. 
+Normally this is the case. What can happen here, is that multiple requests are sent to the server which are overlapping each other:
+```ts
+// Our your pipeline gets triggered by these two values in the next(), within 200ms
+=time=>
+--Ber---------------------Berge-->
+   |                      |
+   GET /api/place?q=Ber------------------------------------AnswerA // Slower, because less specific query 
+                          |                                |
+                          GET /api/place?q=Berge---AnswerB | 
+                                                   |       |
+                                                   suggestion=AnswerB
+                                                           |
+                                                           suggestions=AnswerA
+```
+
+As you can see this can result in the suggestions beeing overwritten by the old Answer, if we are not careful.
+To solve this problem we would make sure to first **cancle* the old request before sending the new one. This is a very common problem and is best handled by RxJS.  
+It can be done the following way:
+```ts
+
+const mySubscription = fromEvent(htmlInput, 'keyup')
+.pipe(
+  // {...}
+  distinctUntilChanged(),
+  // New code
+  switchMap((value: string) => {
+    return fromFetch(`https://my-api.com/api/place?q=${query}`);
+  })
+)
+.subscribe({
+  next: (values: string[]) => showAutocomplete(values)
+});
+```
+
+What happens now is the following:
+* When no GET Request is on the way, create a new **Inner Observable** and subscribe to it (`fetchFrom()`)
+* When a value is returned from the GET, return it to the **Outer Observable** (Our top level subscriber)
+* When a GET request is on the way, cancel it and unsubscribe from the **Inner Observable**, create a new one (see first bullet point)
+
+An additional advantage is, that calling `unsubscribe()` on `mySubscription` will automatically unsubscribe to all inner and outer **Observables**. So yo do not need to handle any resource management your self. 
+```ts
+// Our your pipeline gets triggered by these two values in the next(), within 200ms
+=time=>
+--Ber---------------------Berge-->
+   |                      |
+[switchMap]---------------[switch]--->
+   |                      |  |
+subscribe       unsubscribe  subscribe        
+   |                      |  |
+   GET /api/place?q=Ber---X  |
+                             |
+                             GET /api/place?q=Berge---AnswerB
+                                                   |
+                                                   suggestion=AnswerB
+                                                          
+```
+
+
+
+
+// Example: switchMap for auto-complete
