@@ -273,7 +273,7 @@ Imagine for example you want to fetch suggestions for your autocomplete feature 
 
 Lets take the Example from the previous Article section:
 ```ts
-fromEvent(htmlInput, 'keyup')
+const mySubscription = fromEvent(htmlInput, 'keyup')
 .pipe(
   // Only trigger down-stream observer all 200ms
   debounceTime(200),
@@ -293,7 +293,7 @@ Here, we first ensure we trigger our `next()` callback only, after we ensured we
 Then we trigger the display ofthe autocomplete by triggering `suggestAutocomplete(value)`. This solution is fine, as long as we already have the possiblke suggestions loaded and do not need to fetch them from a server. 
 Normally this is the case. What can happen here, is that multiple requests are sent to the server which are overlapping each other:
 ```ts
-// Our your pipeline gets triggered by these two values in the next(), within 200ms
+// Our pipeline gets triggered by these two values in the next(), within 200ms
 =time=>
 --Ber---------------------Berge-->
    |                      |
@@ -307,32 +307,32 @@ Normally this is the case. What can happen here, is that multiple requests are s
 ```
 
 As you can see this can result in the suggestions beeing overwritten by the old Answer, if we are not careful.
-To solve this problem we would make sure to first **cancle* the old request before sending the new one. This is a very common problem and is best handled by RxJS.  
+To solve this problem we would make sure to first **cancel** the old request before sending the new one. This is a very common problem and can easily be dealt with, with RxJS.  
 It can be done the following way:
 ```ts
 
 const mySubscription = fromEvent(htmlInput, 'keyup')
 .pipe(
   // {...}
-  distinctUntilChanged(),
-  // New code
+  // New code, will map the current inputValues to a new Observable which returns the search results
   switchMap((value: string) => {
     return fromFetch(`https://my-api.com/api/place?q=${query}`);
   })
 )
 .subscribe({
-  next: (values: string[]) => showAutocomplete(values)
+  // We now only need to display the suggestions
+  next: (values: string[]) => showSuggestions(values)
 });
 ```
 
 What happens now is the following:
-* When no GET Request is on the way, create a new **Inner Observable** and subscribe to it (`fetchFrom()`)
+* When no GET Request is on the way, it just creates a new one as **Inner Observable** and subscribes to it (`fetchFrom()`)
 * When a value is returned from the GET, return it to the **Outer Observable** (Our top level subscriber)
-* When a GET request is on the way, cancel it and unsubscribe from the **Inner Observable**, create a new one (see first bullet point)
+* When a GET request is already on the way, cancel it and unsubscribe from the **Inner Observable**, create a new one (see first bullet point)
 
-An additional advantage is, that calling `unsubscribe()` on `mySubscription` will automatically unsubscribe to all inner and outer **Observables**. So yo do not need to handle any resource management your self. 
+An additional advantage is, that calling `mySubscription.unsubscribe()` will automatically unsubscribe to all inner and outer **Observable**. So yo do not need to handle any resource management yourself. 
 ```ts
-// Our your pipeline gets triggered by these two values in the next(), within 200ms
+// Our pipeline gets triggered by these two values in the next(), within 200ms
 =time=>
 --Ber---------------------Berge-->
    |                      |
