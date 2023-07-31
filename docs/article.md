@@ -267,11 +267,19 @@ So the key points are:
 
 
 ## Higher-Level Observables
-### Operator Functions
-The first touch-points a new developer has with higher-level observables are normally the built in operator functions like `switchMap`, `exhaustMap` or `mergeMap`. They are normally used to trigger a side effect or fetching of data based on an event emitted on the upstream observable.  
+### Inner and Outer Observable
+// TODO ADDexplanation
+
+
+### Common High-Level operator functions
+The first touch-points a new developer has with higher-level observables are normally the built in operator functions like `switchMap()`, `exhaustMap()` or `mergeMap()`. They are normally used to trigger a side effect or fetching of data based on an event emitted on the upstream observable.  
+
+They take in a value and **map** it to a **new Observable** which returns another value.
+
 Imagine for example you want to fetch suggestions for your autocomplete feature from the, when the user is typing in some letters into an input.
 
-Lets take the Example from the previous Article section:
+Lets take the example from the previous Article section about **Pipes**.  
+Below you can see the code again from the section:
 ```ts
 const mySubscription = fromEvent(htmlInput, 'keyup')
 .pipe(
@@ -289,28 +297,33 @@ const mySubscription = fromEvent(htmlInput, 'keyup')
 });
 ```
 
-Here, we first ensure we trigger our `next()` callback only, after we ensured we have relevant data which and the user is not still typing.
-Then we trigger the display ofthe autocomplete by triggering `suggestAutocomplete(value)`. This solution is fine, as long as we already have the possiblke suggestions loaded and do not need to fetch them from a server. 
-Normally this is the case. What can happen here, is that multiple requests are sent to the server which are overlapping each other:
+Here, we first ensure we trigger our `next()` callback only, after we debounced and filtered for the relevant data.  
+
+Then we trigger the display of the autocomplete by triggering `suggestAutocomplete(value)`. This solution is fine, as long as the search for the suggestable items is fast and done locally, without requesting a result set from a server.   
+But, normally we do want to query such data from a server. When we do that the time to fulfill the "find suggestions" can vary greatly, so a request sended earlier could be returned after the second one. Reasons for the delay could be simply the network, busy server resources.  
+
+So we should expect, that multiple requests are sent to the server which are overlapping each other:
 ```ts
 // Our pipeline gets triggered by these two values in the next(), within 200ms
 =time=>
 --Ber---------------------Berge-->
-   |                      |
-   GET /api/place?q=Ber------------------------------------AnswerA // Slower, because less specific query 
-                          |                                |
-                          GET /api/place?q=Berge---AnswerB | 
-                                                   |       |
+   ╎                      ╎
+   GET /api/place?q=Ber------------------------------------AnswerA-|->// Late answer, because slow network
+                          ╎                                ╎
+                          GET /api/place?q=Berge---AnswerB-╎-|-> 
+                                                   ╎       ╎
                                                    suggestion=AnswerB
-                                                           |
-                                                           suggestions=AnswerA
+                                                   ╎       ╎
+                                                   ╎       suggestions=AnswerA
+                                                   ╎       ╎
+[Subscriber]---------------------------------------AnswerB-AnswerB-->                                                           
 ```
 
 As you can see this can result in the suggestions beeing overwritten by the old Answer, if we are not careful.
 To solve this problem we would make sure to first **cancel** the old request before sending the new one. This is a very common problem and can easily be dealt with, with RxJS.  
+
 It can be done the following way:
 ```ts
-
 const mySubscription = fromEvent(htmlInput, 'keyup')
 .pipe(
   // {...}
@@ -325,7 +338,7 @@ const mySubscription = fromEvent(htmlInput, 'keyup')
 });
 ```
 
-What happens now is the following:
+What happens with switchMap is the following:
 * When no GET Request is on the way, it just creates a new one as **Inner Observable** and subscribes to it (`fetchFrom()`)
 * When a value is returned from the GET, return it to the **Outer Observable** (Our top level subscriber)
 * When a GET request is already on the way, cancel it and unsubscribe from the **Inner Observable**, create a new one (see first bullet point)
@@ -335,20 +348,91 @@ An additional advantage is, that calling `mySubscription.unsubscribe()` will aut
 // Our pipeline gets triggered by these two values in the next(), within 200ms
 =time=>
 --Ber---------------------Berge-->
-   |                      |
+   ╎                      ╎
 [switchMap]---------------[switch]--->
-   |                      |  |
+   ╎                      ╎  ╎
 subscribe       unsubscribe  subscribe        
-   |                      |  |
-   GET /api/place?q=Ber---X  |
-                             |
-                             GET /api/place?q=Berge---AnswerB
-                                                   |
-                                                   suggestion=AnswerB
+   ╎                      ╎  ╎
+   GET /api/place?q=Ber---X  ╎
+                             ╎
+                             GET /api/place?q=Berge---AnswerB-|->
+                                                   ╎
+                                                   suggestion=AnswerB-|->
+                                                   ╎
+[Subscriber]---------------------------------------AnswerB--> 
                                                           
 ```
 
+### Difference between switchMap, exhaustMap, mergeMap
+In the example above we saw the usage of **switchMap** to *switch* to a new Observable when we receive a new value, the subscription to the previous Observable is dropped by an `unsubscribe()` and it calls the `subscribe()` on the new one.
 
+The main difference to the two other operators is, when the unsubscribe and subscribe to the new Observables generated by the functions passed into them.
 
+#### switchMap
+```ts
+const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+const subscription = inputTrigger.pipe(
+    switchMap((value) => requestWhichTakes220Ms(value))
+).subscribe({
+    next: (value) => console.log(`Next: ` + value)
+});
+/*
+  Output:
+  Next: Bregenz
+*/
+```
+This is the same example as we used in the initial paragraph of this article section.
+**`switchMap()` behaviour**
+* Current **Inner Observable**:
+  * Unsubscribe, if exists
+* New **Inner Observable**:
+  * Subscribe right away
 
-// Example: switchMap for auto-complete
+#### exhaustMap
+With `exhaustMap()` your code will always complete the currently open **Inner Observable** before subscribing to the next one. 
+It also only remembers the latest **Inner Observable**, which was returned by the method provided to `exhaustMap()`.
+```ts
+const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+const subscription = inputTrigger.pipe(
+    exhaustMap((value) => requestWhichTakes220Ms(value))
+).subscribe({
+    next: (value) => console.log(`Next: ` + value)
+});
+/*
+  Output:
+  Next: Ber
+  Next: Bregenz
+*/
+```
+
+**`exhaustMap()` behaviour**
+* Current **Inner Observable**:
+  * Wait for value(s) and completion
+* New **Inner Observable**:
+  * Remember Observable for after the current one completed
+  * Subscribe, after current one completed or there is no current one
+
+#### mergeMap
+With `mergeMap()` your could will just subscribe to all new **Inner Observable** right away and return the balues concurrently in the next event callback.
+```ts
+const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+const subscription = inputTrigger.pipe(
+    mergeMap((value) => requestWhichTakes220Ms(value))
+).subscribe({
+    next: (value) => console.log(`Next: ` + value)
+});
+/*
+  // Note: The order is not guaranteed, depending on the speed of the requests it could all be jumbled up
+  Output:
+  Next: Ber
+  Next: Berge
+  Next: Bregenz
+*/
+```
+
+**`mergeMap()` behaviour**
+* Current **Inner Observable**:
+  * Wait for values and completion
+* New **Inner Observable**:
+  * Subscribe right away
+  * Return events to the **Outer Observable** as soon as they arrive
