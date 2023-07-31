@@ -251,7 +251,7 @@ var oneToThree = new Observable<number>((subscriber) => {
     // Will be ignored by subscriber, as we already closed the stream with complete()
     subscriber.error("some error");
 
-    // Is triggered after subscriber.complete() or subscriber.error() was executed
+    // Is triggered after subscriber.complete() or subscriber.error() was executed or unsubscribe() was called
     return () => {
         console.log("Cleanup resources, used by this Observable")
     };
