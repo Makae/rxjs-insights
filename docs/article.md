@@ -312,10 +312,6 @@ So we should expect, that multiple requests are sent to the server which are ove
                           ╎                                ╎
                           GET /api/place?q=Berge---AnswerB-╎-|-> 
                                                    ╎       ╎
-                                                   suggestion=AnswerB
-                                                   ╎       ╎
-                                                   ╎       suggestions=AnswerA
-                                                   ╎       ╎
 [Subscriber]---------------------------------------AnswerB-AnswerB-->                                                           
 ```
 
@@ -356,10 +352,8 @@ subscribe       unsubscribe  subscribe
    GET /api/place?q=Ber---X  ╎
                              ╎
                              GET /api/place?q=Berge---AnswerB-|->
-                                                   ╎
-                                                   suggestion=AnswerB-|->
-                                                   ╎
-[Subscriber]---------------------------------------AnswerB--> 
+                                                      ╎
+[Subscriber]------------------------------------------AnswerB--> 
                                                           
 ```
 
