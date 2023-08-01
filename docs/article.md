@@ -4,7 +4,7 @@ Within the last few years Reactive Programming bacame a core tool which is used 
 One of the most notable frameworks which uses an implementation of ReactiveX is Angular. Angular includes the RxJS library as a direct dependency and uses it for implementing a reactive and standardized solution for working with data streams and data manipulation.
 Altough RxJS is widely used by developers and adopted by major frameworks, it is often hard for new developers to understand it. Furthermore there are many common pitfalls which make finding problems hard.
 
-I remember having  a hard time getting into RxJS. This article tries to ease new developers into ReactiveX and RxJS and also gives some insights for handling the more complex topics like Higher-Level Observables and the inner workings of RxJS.  
+I remember having  a hard time getting into RxJS. This article tries to ease new developers into ReactiveX and RxJS and also gives some insights for handling the more complex topics like Higher-Order Observables and the inner workings of RxJS.  
 Within the article I will show all examples with TypeScript and the RxJS Library, as I am most comfortable with those implementations. Nevertheless the concept here will apply to all implementations of ReactiveX.
 
 ## Why Reactive Programming?
@@ -182,6 +182,138 @@ I will go into more detail about how Pipes work in the background in a later sec
     s2->>s3: close()
 ```
 
+### Subjects
+When building your own data streams the use of Subjects provide you with an easy way to create *an Observable to which you can push data to*. So instead of defining all the events triggered within an Observable, the Subject provides additional functions to do so.
+
+#### Subject
+When using a simple **Subject** you are more interested in the events and less in the current state of your data.
+For example, you could use a Subject to emit WebSocket events returned from your server, like so:  
+```ts
+interface ApiStatus {
+    type: "ApiStatus"
+    status: string;
+}
+
+const websocketEventSubject = new Subject<ApiStatus>();
+
+var subscription = websocketEventSubject.subscribe({
+    next: (event: ApiStatus) => console.log(`Next ${event.type}`),
+    complete: () => console.log("Complete"),
+    error: () => console.log("Exit"),
+});
+
+websocketEventSubject.next({type: "ApiStatus", status: "OK"});
+websocketEventSubject.complete();
+
+/*
+  Output:
+Next ApiStatus
+Complete
+*/
+```
+
+#### BehaviorSubject
+Pretty fast you want to be able to know the latest value of the data stream which was emitted. With the help of the *BehaviorSubject* you can do that by calling `value()` on it. A good example would be the User Login status.
+
+```ts
+// NOTE: You need an initial value, but you could also define <boolean | undefined> as type if you do not know at instantiation time.
+const userLoggedInSubject = new BehaviorSubject<boolean>(false);
+
+userLoggedInSubject.pipe(
+    // Ensure we only emit values, when they changed
+    distinctUntilChanged()
+).subscribe({
+    next: (event: boolean) => console.log(`Is Logged In: ${event}`),
+});
+// As you will see it will log the initial  / current value immediately, the first subscription
+console.log("userLoggedInSubject did subscribe");
+
+
+// Gets filtered out by distinctUntilChanged
+userLoggedInSubject.next(false);
+userLoggedInSubject.next(true);
+
+console.log("Outside state: " + userLoggedInSubject.getValue());
+
+/*
+  Output:
+Is Logged In: false
+userLoggedInSubject did subscribe
+Is Logged In: true
+Outside state: true
+*/
+```
+
+#### ReplaySubject
+When we are interested in all events emitted by the Subject you can use the ReplaySubject. It is especially handy to track changes over time. For example you could define a *ReplaySubject* to have the possibility to replay state changes over time, like Redux. Or you could apply the concept of event sourcing to your state.
+Example:
+```ts
+interface State {
+    name: string;
+    firstName: string;
+    email: string;
+}
+
+const myEventSourcingDB = new ReplaySubject<Partial<State>>();
+console.log("Before myStateStore was subscribed to");
+myEventSourcingDB.next({name: "Peter"});
+myEventSourcingDB.next({firstName: "Parker"});
+myEventSourcingDB.next({email: "tony-stark@example.com"});
+
+myEventSourcingDB.pipe(
+    scan((partialState, newPartialState) => { return {...partialState, ...newPartialState}})
+).subscribe({
+    next: (state: Partial<State>) => console.log(`Accumulated state: ${JSON.stringify(state)}`),
+});
+
+// As you will see it will aready have logged all changes.
+console.log("After myEventSourcingDB did subscribe");
+
+/* Output:
+Before myStateStore was subscribed to
+Accumulated state: {"name":"Peter"}
+Accumulated state: {"name":"Peter","firstName":"Parker"}
+Accumulated state: {"name":"Peter","firstName":"Parker","email":"tony-stark@example.com"}
+After myEventSourcingDB did subscribe
+*/
+```
+
+#### AsyncSubject
+This Subject will only return the last value it had in it's pipe when it completes. This Subject is not that helpful, as you can just use the operator function `last()` within a normal subject to achieve this.  
+For example:
+```ts
+
+const dragAndDropValue = new AsyncSubject<string>();
+dragAndDropValue.next("List item 1");
+dragAndDropValue.next("List item 2");
+
+dragAndDropValue.subscribe({
+    next: (value: string) => console.log(`Latest value: ${value}`),
+    complete: () => console.log("Complete"),
+    error: () => console.log("Exit"),
+});
+console.log("After subscribe");
+dragAndDropValue.next("List item 5");
+
+dragAndDropValue.complete();
+console.log("After complete");
+
+/* Output:
+After subscribe
+Latest value: List item 5
+Complete
+After complete
+*/
+```
+
+
+### Helper / Operator Functions of RxJS
+RxJS helps you a lot with built-in functions for setting up your data streams. The functions can be split into the following categories.
+* Creational
+* Filtering
+* Mapping
+* Analytical
+
 
 ## Marble diagrams
 When working with RxJS the use of marble diagrams help you design your observables in the right way.  
@@ -221,7 +353,7 @@ There are interactive Marble diagrams to help explain developers what is happeni
 
 
 # Getting technical
-Now you've had a brief overview over ReactiveX and RxJS let's dive deeper into the workings within the RxJS library.
+Now we've had a brief overview over ReactiveX and RxJS let's dive deeper into the workings within the RxJS library.
 
 ## Our very own Observable
 In the examples in the Introduction we saw *creation* functions like `of(1,2)` or `fromEvent(input, 'keyup')`. In 90% of the cases those *creation* functions serve your needs and you do not need to create Observeables yourself.  
@@ -266,13 +398,13 @@ So the key points are:
 * The first time calling either `complete()` or `error()` will result in all future callbacks to be ignored
 
 
-## Higher-Level Observables
+## Higher-Order Observables
 ### Inner and Outer Observable
 // TODO ADDexplanation
 
 
-### Common High-Level operator functions
-The first touch-points a new developer has with higher-level observables are normally the built in operator functions like `switchMap()`, `exhaustMap()` or `mergeMap()`. They are normally used to trigger a side effect or fetching of data based on an event emitted on the upstream observable.  
+### Common High-Order operator functions
+The first touch-points a new developer has with higher-Order observables are normally the built in operator functions like `switchMap()`, `exhaustMap()` or `mergeMap()` or `concatMap()`. They are normally used to trigger a side effect or fetching of data based on an event emitted on the upstream observable.  
 
 They take in a value and **map** it to a **new Observable** which returns another value.
 
@@ -377,9 +509,9 @@ const subscription = inputTrigger.pipe(
 ).subscribe({
     next: (value) => console.log(`Next: ` + value)
 });
-/*
-  Output:
-  Next: Bregenz
+
+/* Output:
+Next: Bregenz
 */
 ```
 
@@ -401,15 +533,14 @@ const subscription = inputTrigger.pipe(
 ).subscribe({
     next: (value) => console.log(`Next: ` + value)
 });
-/*
-  Output:
-  Next: Ber
-  Next: Bregenz
+/* Output:
+Next: Ber
+Next: Bregenz
 */
 ```
 
 #### mergeMap
-With `mergeMap()` your could will just subscribe to all new **Inner Observable** right away and return the balues concurrently in the next event callback.
+With `mergeMap()` will just subscribe to all new **Inner Observable** right away and return the balues concurrently in the next event callback.
 
 **`mergeMap()` behaviour**
 * Current **Inner Observable**:
@@ -428,8 +559,34 @@ const subscription = inputTrigger.pipe(
 /*
   // Note: The order is not guaranteed, depending on the speed of the requests it could all be jumbled up
   Output:
-  Next: Ber
-  Next: Berge
-  Next: Bregenz
+Next: Ber
+Next: Berge
+Next: Bregenz
+*/
+```
+
+#### concatMap
+With `concatMap()` queues all new  **Inner Observables** and completes one after another. When the current one is completed the next in the queue is executed.
+
+**`concatMap()` behaviour**
+* Current **Inner Observable**:
+  * Wait for values and completion
+* New **Inner Observable**:
+  * Add it to the queue
+  * Subscribe to it, when the previous observables finished
+
+```ts
+const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+const subscription = inputTrigger.pipe(
+    concatMap((value) => requestWhichTakes220Ms(value))
+).subscribe({
+    next: (value) => console.log(`Next: ` + value)
+});
+/*
+  // Note: Here the order is guaranteed, as concatMap always waits on the completion of the previous Inner Observable
+  Output:
+Next: Ber
+Next: Berge
+Next: Bregenz
 */
 ```

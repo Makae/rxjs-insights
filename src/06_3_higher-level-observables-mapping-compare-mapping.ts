@@ -1,4 +1,4 @@
-import { Observable, delay, exhaustMap, interval, map, mergeMap, of, switchMap, take, zip } from "rxjs";
+import { Observable, concatMap, delay, exhaustMap, interval, map, mergeMap, of, switchMap, take, zip } from "rxjs";
 
 
 const obsInput200MsValues = () => {
@@ -34,9 +34,17 @@ const subscriptionMM = inputTriggerMM.pipe(
     next: (value) => console.log(`mergeMap Next: ` + value)
 });
 
+const inputTriggerCM = obsInput200MsValues();
+const subscriptionCM = inputTriggerCM.pipe(
+    concatMap((value) => requestWhichTakes220Ms(value))
+).subscribe({
+    next: (value) => console.log(`concatMap Next: ` + value)
+});
+
 setTimeout(() => {
     subscriptionSM.unsubscribe();
     subscriptionEM.unsubscribe();
     subscriptionMM.unsubscribe();
+    subscriptionCM.unsubscribe();
 }, 1000);
 
