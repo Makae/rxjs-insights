@@ -205,8 +205,7 @@ var subscription = websocketEventSubject.subscribe({
 websocketEventSubject.next({type: "ApiStatus", status: "OK"});
 websocketEventSubject.complete();
 
-/*
-  Output:
+/* Output:
 Next ApiStatus
 Complete
 */
@@ -399,9 +398,58 @@ So the key points are:
 
 
 ## Higher-Order Observables
-### Inner and Outer Observable
-// TODO ADDexplanation
+There is only a small difference between normal Observables and High-Order Observables. While "normal" Observables are handling simple values in their data stream - like numbers, arrays or objects - Higher-Order Observables are handling Observables themselfs.
 
+Here is an exmple of the differences between those two:
+```ts
+// Returns Place[] within next()
+let normalObs: Observable<Place[]>;
+
+// Returns Observable<Place[]> within next()
+let highLevelObs: Observable<Observable<Place[]>>;
+```
+
+A fair question is, why is this necessary?  
+To answer this we need to look into the conditions and the exact timing when we generate an observable. Let's look again at the autoComplete example. There we want to fetch suggested places from the server when the user is typing.  
+So to start your pipe you would listen to `fromEvent(inputElement, 'change')` which will provide you with a stream of strings: `Observable<string>`    
+Based on the events triggerd by this Observable you would want to fetch the data from a server, for which you can use `ajax("api\places?q=" + query)`, which also returns an observable `Observable<string[]>`.
+
+So, in the end you map the `string` values to `Observable<string[]>`. That means your Outer Observable now is of type `Observable<Observable<string>`.
+
+**Let's piece the example together in code**
+```ts
+// NOTE: This is just for learning purpose, there are better approaches (see next Section)
+let ongoingRequestSubscription: Subscription;
+
+// Type is: Observable<Observable<string[]>>
+const highLevelObservable = fromEvent(inputElement, 'change')
+.pipe(
+    // Type is:            Observable<string[]>
+    map((value: string) => ajax.getJSON(`api/places?q=${value}`))
+);
+
+highLevelObservable.subscribe({
+  next: (fetchObs: Observable<string[]>) => {
+      // Cancel open request
+      ongoingRequestSubscription?.unsubscribe();
+
+      ongoingRequestSubscription = fetchObs.subscribe({
+        next: (places: string[]) => {
+          showSuggestions(places):
+        }
+    });
+});
+```
+This looks cumbersome, because it is. There is a lot of boilerplate code to get this running. There is a much easier way to achieve this which also manages the `ongoingRequestSubscription` for us. (See: Common High-Order operator functions)
+
+### Inner and Outer Observables
+Comming back to the example above, we can see the distinction between the **Inner Observable** and **Outer Observable**:
+* Outer Observable: **`Observable<`**`Observable<MyType>`**`>`**
+  * Has a stream which returns Observables
+  * The stream of observables has to be subscribed and unsubscribed to (somebody needs to handle this)
+* Inner Observable: **`Observable<MyType>`**
+  * Has a stream of the "standard" values
+  * Normally we are only interested in those "normal" values
 
 ### Common High-Order operator functions
 The first touch-points a new developer has with higher-Order observables are normally the built in operator functions like `switchMap()`, `exhaustMap()` or `mergeMap()` or `concatMap()`. They are normally used to trigger a side effect or fetching of data based on an event emitted on the upstream observable.  
@@ -590,3 +638,28 @@ Next: Berge
 Next: Bregenz
 */
 ```
+
+## Hot vs Cold Observable
+// TODO: Add content / examples and so on.
+
+## Scheduling
+Scheduling is a topic which needs a bit of background knowledge of how Browser and JavaScript Engines work. Depending on which type of scheduler you use there might be some nasty side effects and hard issues to debug. Which scheduler is implicitly used is not alway clear. This section tries to explain the differences between them and which of the most common RxJS functions result in which scheduler usage.
+
+See: [Learn RxJs - Schedulers](https://rxjs.dev/guide/scheduler)
+
+Normally you do not need to change the schedulers, but be aware, that there are 2 general groups:
+**Synchronous**
+* `next()` gets called immediately
+* Exmamples:
+  * of(), fromArray()
+  * empty(), range()
+  
+**Asynchronous**
+* `next()` gets called when the next setTimeout animationFrame, process.nextTick is triggeret
+* Examples:
+  * interval(), timer(), delay()
+  * bufferTime(), delay(), debounce()
+  * fromEvent(), ajax()
+
+
+### 
