@@ -3,7 +3,7 @@ import { Observable, Subscription, map, of } from "rxjs";
 const inputEvents: Observable<string> = of('Bern', 'Bergen', 'Bregenz');
 const highLevelObservable: Observable<Observable<string[]>> = inputEvents
     .pipe(
-        map((value: string) => of(["Place1", "Place2"]))
+        map((value: string) => of([value, "Place1", "Place2"]))
     );
 
 let ongoingRequestSubscription: Subscription;
@@ -14,7 +14,8 @@ highLevelObservable.subscribe({
 
         ongoingRequestSubscription = fetchObs.subscribe({
             next: (places: string[]) => {
-                showSuggestions(places):
+                console.log(places);
             }
         });
-    });
+    }
+});
