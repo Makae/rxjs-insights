@@ -260,7 +260,7 @@ Complete
 
 #### BehaviorSubject
 Pretty fast you want to be able to know the latest value of the data stream which was emitted. With the help of the *BehaviorSubject* you can do that by calling `value()` on it. It will also immediatly return the latest stored value when you subscribe to it.  
-A good example would be the User Login status.
+For example, you could use it to track the user's login status.
 
 ```ts
 // NOTE: You need an initial value, but you could also define <boolean | undefined> as type if you do not know at instantiation time.
@@ -308,8 +308,8 @@ myEventSourcingDB.next({firstName: "Parker"});
 myEventSourcingDB.next({email: "tony-stark@example.com"});
 
 myEventSourcingDB.pipe(
-    scan((partialState, newPartialState) => {q 
-      return {...partialState, ...newPartialState}})
+    scan((state, partialState) => {q 
+      return {...state, ...partialState}})
 ).subscribe({
     next: (state: Partial<State>) => console.log(`Accumulated state: ${JSON.stringify(state)}`),
 });
@@ -327,8 +327,9 @@ After myEventSourcingDB did subscribe
 ```
 
 #### AsyncSubject
-This Subject will only return the last value it had in it's pipe when it completes. This Subject is not that helpful, as you can just use the operator function `last()` within a normal subject to achieve this.  
-For example:
+This subject will only return the last value it had in it's pipe when it completes. This Subject is not that helpful, as you can just use the operator function `last()` within a normal subject to achieve this.  
+
+Example:
 ```ts
 
 const dragAndDropValue = new AsyncSubject<string>();
@@ -400,7 +401,7 @@ There are interactive Marble diagrams to help explain developers what is happeni
   Visualizes events my animating them over time
 
 
-# Getting technical
+# In-depth look / Getting technical
 Now we've had a brief overview over ReactiveX and RxJS let's dive deeper into the workings within the RxJS library.
 
 ## Our very own Observable
@@ -410,14 +411,15 @@ But we want to understand how you can create our own so we get a deeper understa
 When defining a custom observable, the basic structure reminds us a lot of Promises.  
 Recalling promises, we have two callback methods beeing passed to the "on-subscribe" method. We then use either one or the other to *fulfill* or *reject* the promise.
 ```ts
-// Note: We need to give back all the values at once, as we only trigger resolve once!
+// Note: We need to give back all the values at once, as we only trigger resolve once! 
+// (But it could be done asnychronously)
 let myPromise = new Promise<number[]>((resolveCallback, rejectCallback) => {
   resolveCallback([1,2,3]);
 });
 ```
 
-### Example of custom Observable
-If we look at the Observable we can see that, similarily to the Promise, we pass-in an observer which contains the three callback methods `next()`, `complete()` and `error()`.
+### Example of a custom Observable
+If we look at the Observable we can see that, similarily to the Promise, we pass-in an observer / subscriber which contains the three callback methods `next()`, `complete()` and `error()`.
 ```ts
 var oneToThree = new Observable<number>((subscriber) => {
     for (var i = 1; i <= 3; i++) {
@@ -449,8 +451,10 @@ So the key points are:
 ## Higher-Order Observables
 There is only a small difference between normal Observables and High-Order Observables. While "normal" Observables are handling simple values in their data stream - like numbers, arrays or objects - Higher-Order Observables are handling Observables themselfs.
 
-Here is an exmple of the differences between those two:
+The differences between those two can be seen here:
 ```ts
+// Note: Suppose Place[] is the search result for a query
+
 // Returns Place[] within next()
 let normalObs: Observable<Place[]>;
 
@@ -458,16 +462,16 @@ let normalObs: Observable<Place[]>;
 let highLevelObs: Observable<Observable<Place[]>>;
 ```
 
-A fair question is, why is this necessary?  
+A fair question is: Why are Higher-Order Observables necessary?  
 To answer this we need to look into the conditions and the exact timing when we generate an observable. Let's look again at the autoComplete example. There we want to fetch suggested places from the server when the user is typing.  
 So to start your pipe you would listen to `fromEvent(inputElement, 'change')` which will provide you with a stream of strings: `Observable<string>`    
-Based on the events triggerd by this Observable you would want to fetch the data from a server, for which you can use `ajax("api\places?q=" + query)`, which also returns an observable `Observable<string[]>`.
+Based on the events triggerd by this Observable you would want to fetch the data from a server, for which you can use `ajax("api\places?q=" + query)`, which returns an observable `Observable<string[]>`.
 
-So, in the end you map the `string` values to `Observable<string[]>`. That means your Outer Observable now is of type `Observable<Observable<string>`.
+So, in the end you map the `string` values of your InputObservable to the ajaxObservables `Observable<string[]>`. That means your Outer Observable now is of type `Observable<Observable<string>`.
 
 **Let's piece the example together in code**
 ```ts
-// NOTE: This is just for learning purpose, there are better approaches (see next Section)
+// NOTE: This is just for learning purposes, there are better approaches for tracking open subscriptions (see next section)
 let ongoingRequestSubscription: Subscription;
 
 // Type is:                 Observable<Observable<string[]>>
@@ -488,25 +492,25 @@ highLevelObservable.subscribe({
     });
 });
 ```
-This looks cumbersome, because it is. There is a lot of boilerplate code to get this running. There is a much easier way to achieve this which also manages the `ongoingRequestSubscription` for us. (See: Common High-Order operator functions)
+As you can see we need to track the currently open subscriptions and unsubscribe when the user typed in some additional letters. Tracking the old subscription is cumbersome, because there is a lot of boilerplate code to get this running. There is a much easier way to achieve this which also manages the `ongoingRequestSubscription` for us. In this case we could just use the `switchMap()` Operator. (See: Common High-Order operator functions)
 
 ### Inner and Outer Observables
 Comming back to the example above, we can see the distinction between the **Inner Observable** and **Outer Observable**:
 * Outer Observable: **`Observable<`**`Observable<MyType>`**`>`**
   * Has a stream which returns Observables
-  * The stream of observables has to be subscribed and unsubscribed to (somebody needs to handle this)
+  * The stream of observables has to be subscribed and unsubscribed to (Some part of our code need to handle this). In this case we have done it by tracking the old subscription in the variable `ongoingRequestSubscription` 
 * Inner Observable: **`Observable<MyType>`**
-  * Has a stream of the "standard" values
-  * Normally we are only interested in those "normal" values
+  * Has a stream of values with "standard" types
+  * In the end, we are only interested in those values, not the Observables themselfes
 
 ### Common High-Order operator functions
-The first touch-points a new developer has with higher-Order observables are normally the built in operator functions like `switchMap()`, `exhaustMap()` or `mergeMap()` or `concatMap()`. They are normally used to trigger a side effect or fetching of data based on an event emitted on the upstream observable.  
+The first touch-points a new developer has with higher-order observables are normally the built in operator functions like `switchMap()`, `exhaustMap()`, `mergeMap()` or `concatMap()`. They are normally used to trigger a side effect or for fetching data based on an event emitted on the upstream observable.  
 
-They take in a value and **map** it to a **new Observable** which returns another value.
+They take in a value and **map** it to a **new Observable** which returns in turn returns another value.
 
-Imagine for example you want to fetch suggestions for your autocomplete feature from the, when the user is typing in some letters into an input.
+Imagine you want to fetch suggestions for your autocomplete feature from the server. This should happen, when the user is typing inside of a text input field.
 
-Lets take the example from the previous Article section about **Pipes**.  
+Lets take the example from the previous article section about **Pipes**.  
 Below you can see the code again from the section:
 ```ts
 const mySubscription = fromEvent(htmlInput, 'keyup')
@@ -527,31 +531,31 @@ const mySubscription = fromEvent(htmlInput, 'keyup')
 
 Here, we first ensure we trigger our `next()` callback only, after we debounced and filtered for the relevant data.  
 
-Then we trigger the display of the autocomplete by triggering `suggestAutocomplete(value)`. This solution is fine, as long as the search for the suggestable items is fast and done locally, without requesting a result set from a server.   
-But, normally we do want to query such data from a server. When we do that the time to fulfill the "find suggestions" can vary greatly, so a request sended earlier could be returned after the second one. Reasons for the delay could be simply the network, busy server resources.  
+Then we trigger the display of the autocomplete by triggering `suggestAutocomplete(value)`. This solution is fine, as long as the search for the suggestable items is fast and done  without requesting a result set from a server.   
+But normally we do want to query such data from a server. When we do that the time to fulfill the "find suggestions" can vary greatly, so a request sended earlier could be returned after the second one. Reasons for the delay could be the network or busy server resources.  
 
-So we should expect, that multiple requests are sent to the server which are overlapping each other:
+So we should expect that multiple requests are sent to the server which are overlapping each other:
 ```ts
 // Our pipeline gets triggered by these two values in the next(), within 200ms
 =time=>
 --Ber---------------------Berge-->
    ╎                      ╎
-   GET /api/place?q=Ber------------------------------------AnswerA-|->// Late answer, because slow network
+   GET /api/place?q=Ber------------------------------------AnswerA-|->// Late answer, because of slow network
                           ╎                                ╎
                           GET /api/place?q=Berge---AnswerB-╎-|-> 
                                                    ╎       ╎
-[Subscriber]---------------------------------------AnswerB-AnswerB-->                                                           
+[Subscriber]---------------------------------------AnswerB-AnswerA-->                                                           
 ```
 
-As you can see this can result in the suggestions beeing overwritten by the old Answer, if we are not careful.
-To solve this problem we would make sure to first **cancel** the old request before sending the new one. This is a very common problem and can easily be dealt with, with RxJS.  
+As you can see this can result in the suggestions beeing overwritten by the old Answer.
+To solve this problem we ensure to first **cancel** the old request before sending the new one. This is a very common problem and can easily be dealt with, with RxJS.  
 
 It can be done the following way:
 ```ts
 const mySubscription = fromEvent(htmlInput, 'keyup')
 .pipe(
   // {...}
-  // New code, will map the current inputValues to a new Observable which returns the search results
+  // Zhr new code, will map the current inputValues to a new Observable which returns the search results
   switchMap((value: string) => {
     return fromFetch(`https://my-api.com/api/place?q=${query}`);
   })
@@ -577,7 +581,7 @@ An additional advantage is, that calling `mySubscription.unsubscribe()` will aut
    ╎                      ╎  ╎
 subscribe       unsubscribe  subscribe        
    ╎                      ╎  ╎
-   GET /api/place?q=Ber---X  ╎
+   GET /api/place?q=Ber----  ╎
                              ╎
                              GET /api/place?q=Berge---AnswerB-|->
                                                       ╎
@@ -587,7 +591,7 @@ subscribe       unsubscribe  subscribe
 
 ### Difference between switchMap, exhaustMap, mergeMap
 
-The main difference between the operators is, when the unsubscribe and subscribe to the new Observables generated by the functions passed into them.
+The main difference between the operators is, when the methods unsubscribes and subscribes to the new Inner-Observables.
 
 #### switchMap
 In the example above we saw the usage of **switchMap** to *switch* to a new Observable when we receive a new value, the subscription to the previous Observable is dropped by an `unsubscribe()` and it calls the `subscribe()` on the new one.
@@ -599,7 +603,9 @@ In the example above we saw the usage of **switchMap** to *switch* to a new Obse
   * Subscribe right away
 
 ```ts
-const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+// Returns "Ber", "Berge", "Bregenz" after 200ms each
+const inputTrigger = obsInput200MsValues();
+
 const subscription = inputTrigger.pipe(
     switchMap((value) => requestWhichTakes220Ms(value))
 ).subscribe({
@@ -613,7 +619,7 @@ Next: Bregenz
 
 #### exhaustMap
 With `exhaustMap()` your code will always complete the currently open **Inner Observable** before subscribing to the next one. 
-It also only remembers the latest **Inner Observable**, which was returned by the method provided to `exhaustMap()`.
+It also only remembers the latest next **Inner Observable**, which was returned by the method provided to `exhaustMap()`.
 
 **`exhaustMap()` behaviour**
 * Current **Inner Observable**:
@@ -623,7 +629,9 @@ It also only remembers the latest **Inner Observable**, which was returned by th
   * Subscribe, after current one completed or there is no current one
 
 ```ts
-const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+// Returns "Ber", "Berge", "Bregenz" after 200ms each
+const inputTrigger = obsInput200MsValues();
+
 const subscription = inputTrigger.pipe(
     exhaustMap((value) => requestWhichTakes220Ms(value))
 ).subscribe({
@@ -636,7 +644,7 @@ Next: Bregenz
 ```
 
 #### mergeMap
-With `mergeMap()` will just subscribe to all new **Inner Observable** right away and return the balues concurrently in the next event callback.
+`mergeMap()` will just subscribe to all new **Inner Observable** right away and return the values in order they appear.
 
 **`mergeMap()` behaviour**
 * Current **Inner Observable**:
@@ -646,7 +654,9 @@ With `mergeMap()` will just subscribe to all new **Inner Observable** right away
   * Return events to the **Outer Observable** as soon as they arrive
 
 ```ts
-const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+// Returns "Ber", "Berge", "Bregenz" after 200ms each
+const inputTrigger = obsInput200MsValues();
+
 const subscription = inputTrigger.pipe(
     mergeMap((value) => requestWhichTakes220Ms(value))
 ).subscribe({
@@ -662,17 +672,19 @@ Next: Bregenz
 ```
 
 #### concatMap
-With `concatMap()` queues all new  **Inner Observables** and completes one after another. When the current one is completed the next in the queue is executed.
+`concatMap()` queues all new  **Inner Observables** and completes one after another. When the current one is completed the next in the queue is executed.
 
 **`concatMap()` behaviour**
 * Current **Inner Observable**:
   * Wait for values and completion
 * New **Inner Observable**:
   * Add it to the queue
-  * Subscribe to it, when the previous observables finished
+  * Subscribe to the next one in queue, when the previous observables finished
 
 ```ts
-const inputTrigger = obsInput200MsValues(); // Returns "Ber", "Berge", "Bregenz" after 200ms each
+// Returns "Ber", "Berge", "Bregenz" after 200ms each
+const inputTrigger = obsInput200MsValues();
+
 const subscription = inputTrigger.pipe(
     concatMap((value) => requestWhichTakes220Ms(value))
 ).subscribe({

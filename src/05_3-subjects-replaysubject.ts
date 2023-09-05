@@ -13,7 +13,7 @@ myEventSourcingDB.next({firstName: "Parker"});
 myEventSourcingDB.next({email: "tony-stark@example.com"});
 
 myEventSourcingDB.pipe(
-    scan((partialState, newPartialState) => { return {...partialState, ...newPartialState}})
+    scan((state, partialState) => { return {...state, ...partialState}})
 ).subscribe({
     next: (state: Partial<State>) => console.log(`Accumulated state: ${JSON.stringify(state)}`),
 });
